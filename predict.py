@@ -150,7 +150,7 @@ class Predictor(BasePredictor):
 
     def predict(
         self,
-        image: Path = Input(description="Input image. Animated GIF/WebP are supported — every frame is matted and returned as an animated WebP with transparency."),
+        image: Path = Input(description="Input image. Animated GIF/WebP are supported (returned as an animated WebP with transparency). For movie files (mp4/mov/webm), try sprited/birefnet-video."),
         variant: str = Input(
             description="Which BiRefNet model to use. 'general' is the all-purpose default; 'toonout' is the anime/stylized fine-tune; the rest are specialized BiRefNet zoo models.",
             choices=list(VARIANTS.keys()),
