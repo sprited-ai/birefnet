@@ -1,0 +1,31 @@
+# Replicate packaging for BiRefNet background removal — the full variant zoo
+# (general / HR / portrait / matting / dynamic / lite + the ToonOut anime
+# fine-tune), selectable per request. See VARIANTS in predict.py.
+#
+# The two preloaded variants (general = default, toonout = flagship) are baked
+# into the image so their first request is instant. Every other variant
+# lazy-downloads from HuggingFace on first use, then stays warm.
+build:
+  gpu: true
+  cuda: "12.1"
+  python_version: "3.11"
+  python_packages:
+    - torch==2.4.0
+    - torchvision==0.19.0
+    - transformers==4.44.0
+    - timm==1.0.9
+    - einops==0.8.0
+    - kornia==0.7.3
+    - safetensors==0.4.4
+    - huggingface_hub==0.24.6
+    - pillow==10.4.0
+    - numpy==1.26.4
+    - opencv-python-headless==4.10.0.84
+  run:
+    # toonout: bare fine-tune state_dict, loaded onto the stock BiRefNet arch
+    - mkdir -p /weights
+    - curl -fsSL https://huggingface.co/joelseytre/toonout/resolve/main/birefnet_finetuned_toonout.pth -o /weights/birefnet_finetuned_toonout.pth
+    # general: pre-warm the HF cache (weights + trust_remote_code source) so
+    # the default variant needs no download at cold start
+    - python -c "from huggingface_hub import snapshot_download; snapshot_download('ZhengPeng7/BiRefNet')"
+predict: "predict.py:Predictor"

@@ -1,0 +1,13 @@
+This package serves third-party model weights:
+
+  BiRefNet model zoo (general, HR, portrait, matting, dynamic, lite, ...)
+  Copyright (c) Peng Zheng et al.
+  MIT License — https://github.com/ZhengPeng7/BiRefNet
+  Weights — https://huggingface.co/ZhengPeng7
+
+  ToonOut (birefnet_finetuned_toonout.pth)
+  Copyright (c) 2025 Matteo Muratori, Joël Seytre
+  MIT License — https://huggingface.co/joelseytre/toonout
+  Paper: https://arxiv.org/abs/2509.06839
+
+The packaging code in this repository is separately licensed (see LICENSE).
