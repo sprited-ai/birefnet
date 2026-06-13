@@ -48,6 +48,9 @@ VARIANTS: dict[str, tuple[str | None, int]] = {
 
 DEFAULT_VARIANT = "general"
 
+# Cap animated inputs so a giant GIF can't tie up the container indefinitely.
+MAX_ANIMATED_FRAMES = 300
+
 NORM_MEAN = [0.485, 0.456, 0.406]
 NORM_STD = [0.229, 0.224, 0.225]
 
@@ -74,19 +77,25 @@ def refine_foreground(image: Image.Image, matte: Image.Image, r: int = 90) -> Im
 class Predictor(BasePredictor):
     def setup(self) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"[setup] device={self.device}, preloading baked variants", flush=True)
         # Warm container keeps every touched variant resident (Swin-Large is a
         # few GB in fp16, comfortable on an A100-80GB). Preload the baked
         # variants so their first request is instant; the rest lazy-load.
-        self._models: dict[str, AutoModelForImageSegmentation] = {}
-        self._load("toonout")
-        self._load(DEFAULT_VARIANT)
+        self._models: dict[tuple[str, str], AutoModelForImageSegmentation] = {}
+        self._load("toonout", "fp16")
+        self._load(DEFAULT_VARIANT, "fp16")
+        print("[setup] ready", flush=True)
 
-    def _load(self, variant: str) -> AutoModelForImageSegmentation:
-        """Lazily build + cache the model for a variant."""
-        if variant in self._models:
-            return self._models[variant]
+    def _load(self, variant: str, precision: str) -> AutoModelForImageSegmentation:
+        """Lazily build + cache the model for a (variant, precision) pair."""
+        key = (variant, precision)
+        if key in self._models:
+            return self._models[key]
 
         repo, _ = VARIANTS[variant]
+        print(f"[load] building '{variant}' [{precision}] ({repo or 'toonout .pth'}) — "
+              "first use of a non-baked variant downloads its weights",
+              flush=True)
         if repo is None:  # toonout: stock arch + baked fine-tune weights
             model = AutoModelForImageSegmentation.from_pretrained(
                 TOONOUT_BASE_ARCH, trust_remote_code=True
@@ -102,13 +111,13 @@ class Predictor(BasePredictor):
             )
 
         model.to(self.device).eval()
-        if self.device == "cuda":
+        if self.device == "cuda" and precision == "fp16":
             model.half()
-        self._models[variant] = model
+        self._models[key] = model
         return model
 
     def _matte_frame(self, model, rgb: Image.Image, res: int, output_format: str,
-                     mask_blur: int, mask_offset: int, refine_fg: bool) -> Image.Image:
+                     mask_blur: int, mask_offset: int, refine_fg: bool, half: bool) -> Image.Image:
         """Run BiRefNet on one RGB frame and return the cutout (RGBA) or matte (L)."""
         tf = transforms.Compose([
             transforms.Resize((res, res)),
@@ -116,7 +125,7 @@ class Predictor(BasePredictor):
             transforms.Normalize(NORM_MEAN, NORM_STD),
         ])
         batch = tf(rgb).unsqueeze(0).to(self.device)
-        if self.device == "cuda":
+        if half:
             batch = batch.half()
 
         with torch.no_grad():
@@ -168,33 +177,51 @@ class Predictor(BasePredictor):
             description="Refine foreground colours (FB blur fusion) to remove background bleed on soft edges. Ignored for 'mask' output.",
             default=False,
         ),
+        precision: str = Input(
+            description="GPU inference precision. 'fp16' (default) is BiRefNet's standard — ~2x faster, half the VRAM, negligible quality difference. 'fp32' is full precision.",
+            choices=["fp16", "fp32"],
+            default="fp16",
+        ),
     ) -> Path:
-        model = self._load(variant)
+        half = precision == "fp16" and self.device == "cuda"
+        model = self._load(variant, precision)
         _, native_res = VARIANTS[variant]
         res = resolution or native_res
+        print(f"[predict] variant={variant} resolution={res} precision={precision} output={output_format}", flush=True)
 
         src = Image.open(str(image))
         animated = getattr(src, "is_animated", False) and getattr(src, "n_frames", 1) > 1
 
         if not animated:
             frame = self._matte_frame(model, src.convert("RGB"), res,
-                                      output_format, mask_blur, mask_offset, refine_fg)
+                                      output_format, mask_blur, mask_offset, refine_fg, half)
             out = pathlib.Path("/tmp/output.png")
             frame.save(out)
+            print("[predict] done (still image)", flush=True)
             return Path(out)
 
         # Animated GIF / WebP: matte every frame and re-encode as an animated
         # WebP — full alpha, unlike GIF's 1-bit transparency. Timing + loop kept.
+        n = src.n_frames
+        if n > MAX_ANIMATED_FRAMES:
+            raise ValueError(
+                f"Animated input has {n} frames; the limit is {MAX_ANIMATED_FRAMES}. "
+                "Trim or split the animation into shorter clips."
+            )
+        print(f"[predict] animated input — matting {n} frames", flush=True)
         frames, durations = [], []
-        for frame in ImageSequence.Iterator(src):
+        for i, frame in enumerate(ImageSequence.Iterator(src)):
             durations.append(frame.info.get("duration", 100))
             matted = self._matte_frame(model, frame.convert("RGB"), res,
-                                       output_format, mask_blur, mask_offset, refine_fg)
+                                       output_format, mask_blur, mask_offset, refine_fg, half)
             # WebP wants RGB/RGBA; the 'mask' branch yields an 'L' frame.
             frames.append(matted if matted.mode == "RGBA" else matted.convert("RGB"))
+            print(f"[predict] frame {i + 1}/{n}", flush=True)
 
         out = pathlib.Path("/tmp/output.webp")
+        print(f"[predict] encoding animated WebP ({len(frames)} frames)", flush=True)
         frames[0].save(out, format="WEBP", save_all=True, append_images=frames[1:],
                        duration=durations, loop=src.info.get("loop", 0),
                        lossless=True, method=4)
+        print("[predict] done (animated)", flush=True)
         return Path(out)
