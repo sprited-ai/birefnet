@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 import torch
 from cog import BasePredictor, Input, Path
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageSequence
 from torchvision import transforms
 from transformers import AutoModelForImageSegmentation
 
@@ -107,9 +107,41 @@ class Predictor(BasePredictor):
         self._models[variant] = model
         return model
 
+    def _matte_frame(self, model, rgb: Image.Image, res: int, output_format: str,
+                     mask_blur: int, mask_offset: int, refine_fg: bool) -> Image.Image:
+        """Run BiRefNet on one RGB frame and return the cutout (RGBA) or matte (L)."""
+        tf = transforms.Compose([
+            transforms.Resize((res, res)),
+            transforms.ToTensor(),
+            transforms.Normalize(NORM_MEAN, NORM_STD),
+        ])
+        batch = tf(rgb).unsqueeze(0).to(self.device)
+        if self.device == "cuda":
+            batch = batch.half()
+
+        with torch.no_grad():
+            preds = model(batch)[-1].sigmoid().float().cpu()
+        matte = transforms.ToPILImage()(preds[0].squeeze()).resize(rgb.size)
+
+        if mask_offset > 0:
+            for _ in range(mask_offset):
+                matte = matte.filter(ImageFilter.MaxFilter(3))
+        elif mask_offset < 0:
+            for _ in range(-mask_offset):
+                matte = matte.filter(ImageFilter.MinFilter(3))
+        if mask_blur > 0:
+            matte = matte.filter(ImageFilter.GaussianBlur(mask_blur))
+
+        if output_format == "mask":
+            return matte
+        fg = refine_foreground(rgb, matte) if refine_fg else rgb
+        rgba = fg.convert("RGBA")
+        rgba.putalpha(matte)
+        return rgba
+
     def predict(
         self,
-        image: Path = Input(description="Input image"),
+        image: Path = Input(description="Input image. Animated GIF/WebP are supported — every frame is matted and returned as an animated WebP with transparency."),
         variant: str = Input(
             description="Which BiRefNet model to use. 'general' is the all-purpose default; 'toonout' is the anime/stylized fine-tune; the rest are specialized BiRefNet zoo models.",
             choices=list(VARIANTS.keys()),
@@ -141,37 +173,28 @@ class Predictor(BasePredictor):
         _, native_res = VARIANTS[variant]
         res = resolution or native_res
 
-        src = Image.open(str(image)).convert("RGB")
-        tf = transforms.Compose([
-            transforms.Resize((res, res)),
-            transforms.ToTensor(),
-            transforms.Normalize(NORM_MEAN, NORM_STD),
-        ])
-        batch = tf(src).unsqueeze(0).to(self.device)
-        if self.device == "cuda":
-            batch = batch.half()
+        src = Image.open(str(image))
+        animated = getattr(src, "is_animated", False) and getattr(src, "n_frames", 1) > 1
 
-        with torch.no_grad():
-            preds = model(batch)[-1].sigmoid().float().cpu()
-        matte = transforms.ToPILImage()(preds[0].squeeze()).resize(src.size)
-
-        if mask_offset > 0:
-            for _ in range(mask_offset):
-                matte = matte.filter(ImageFilter.MaxFilter(3))
-        elif mask_offset < 0:
-            for _ in range(-mask_offset):
-                matte = matte.filter(ImageFilter.MinFilter(3))
-        if mask_blur > 0:
-            matte = matte.filter(ImageFilter.GaussianBlur(mask_blur))
-
-        out = pathlib.Path("/tmp/output.png")
-        if output_format == "mask":
-            matte.save(out)
+        if not animated:
+            frame = self._matte_frame(model, src.convert("RGB"), res,
+                                      output_format, mask_blur, mask_offset, refine_fg)
+            out = pathlib.Path("/tmp/output.png")
+            frame.save(out)
             return Path(out)
 
-        if refine_fg:
-            src = refine_foreground(src, matte)
-        rgba = src.convert("RGBA")
-        rgba.putalpha(matte)
-        rgba.save(out)
+        # Animated GIF / WebP: matte every frame and re-encode as an animated
+        # WebP — full alpha, unlike GIF's 1-bit transparency. Timing + loop kept.
+        frames, durations = [], []
+        for frame in ImageSequence.Iterator(src):
+            durations.append(frame.info.get("duration", 100))
+            matted = self._matte_frame(model, frame.convert("RGB"), res,
+                                       output_format, mask_blur, mask_offset, refine_fg)
+            # WebP wants RGB/RGBA; the 'mask' branch yields an 'L' frame.
+            frames.append(matted if matted.mode == "RGBA" else matted.convert("RGB"))
+
+        out = pathlib.Path("/tmp/output.webp")
+        frames[0].save(out, format="WEBP", save_all=True, append_images=frames[1:],
+                       duration=durations, loop=src.info.get("loop", 0),
+                       lossless=True, method=4)
         return Path(out)
