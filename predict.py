@@ -33,7 +33,6 @@ TOONOUT_BASE_ARCH = "ZhengPeng7/BiRefNet"
 # their own arch config via trust_remote_code (so _lite picks Swin-Tiny and
 # the HR/2K repos run at 2048 automatically).
 VARIANTS: dict[str, tuple[str | None, int]] = {
-    "toonout":      (None,                              1024),  # anime/stylized fine-tune
     "general":      ("ZhengPeng7/BiRefNet",             1024),  # general-purpose (default)
     "general-hr":   ("ZhengPeng7/BiRefNet_HR",          2048),  # high-resolution general
     "portrait":     ("ZhengPeng7/BiRefNet-portrait",    1024),  # human portraits
@@ -44,6 +43,7 @@ VARIANTS: dict[str, tuple[str | None, int]] = {
     "lite":         ("ZhengPeng7/BiRefNet_lite",        1024),  # Swin-Tiny, faster/cheaper
     "lite-2k":      ("ZhengPeng7/BiRefNet_lite-2K",     2048),  # Swin-Tiny at 2K
     "lite-matting": ("ZhengPeng7/BiRefNet_lite-matting", 1024),  # Swin-Tiny soft matting
+    "toonout":      (None,                              1024),  # anime/stylized fine-tune
 }
 
 DEFAULT_VARIANT = "general"
