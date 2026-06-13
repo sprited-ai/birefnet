@@ -40,8 +40,10 @@ VARIANTS: dict[str, tuple[str | None, int]] = {
     "matting":      ("ZhengPeng7/BiRefNet-matting",     1024),  # trimap-free soft matting
     "matting-hr":   ("ZhengPeng7/BiRefNet_HR-matting",  2048),  # high-res matting
     "dynamic":      ("ZhengPeng7/BiRefNet_dynamic",     1024),  # robust across resolutions
+    "dynamic-matting": ("ZhengPeng7/BiRefNet_dynamic-matting", 1024),  # dynamic-res soft matting
     "lite":         ("ZhengPeng7/BiRefNet_lite",        1024),  # Swin-Tiny, faster/cheaper
     "lite-2k":      ("ZhengPeng7/BiRefNet_lite-2K",     2048),  # Swin-Tiny at 2K
+    "lite-matting": ("ZhengPeng7/BiRefNet_lite-matting", 1024),  # Swin-Tiny soft matting
 }
 
 DEFAULT_VARIANT = "general"

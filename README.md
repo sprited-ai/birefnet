@@ -18,9 +18,10 @@ fine-tune behind one endpoint.
 
 What you get over the basic endpoint:
 
-- **The whole zoo, one input** — general / HR / portrait / matting / matting-HR
-  / dynamic / lite / lite-2K, swapped per request via `variant`. Every variant
-  shares the network, so one warm container serves them all.
+- **The whole zoo, one input** — all 10 official BiRefNet weights (general,
+  HR, portrait, matting, matting-HR, dynamic, dynamic-matting, lite, lite-2K,
+  lite-matting), swapped per request via `variant`. Every variant shares the
+  network, so one warm container serves them all.
 - **ToonOut for stylized content** — the `toonout` variant
   ([ToonOut](https://arxiv.org/abs/2509.06839)) handles hair wisps, line art,
   and translucency that general removers smear. No other Replicate BiRefNet
@@ -43,8 +44,10 @@ For the dedicated one-click anime endpoint, see
 | `matting`    | BiRefNet-matting | trimap-free soft matting | 1024 |
 | `matting-hr` | BiRefNet_HR-matting | high-res soft matting | 2048 |
 | `dynamic`    | BiRefNet_dynamic | robust across resolutions | 1024 |
+| `dynamic-matting` | BiRefNet_dynamic-matting | dynamic-res soft matting | 1024 |
 | `lite`       | BiRefNet_lite | Swin-Tiny, faster/cheaper | 1024 |
 | `lite-2k`    | BiRefNet_lite-2K | Swin-Tiny at 2K | 2048 |
+| `lite-matting` | BiRefNet_lite-matting | Swin-Tiny soft matting | 1024 |
 | `toonout`    | BiRefNet + ToonOut | anime / stylized content | 1024 |
 
 `general` and `toonout` are baked into the image (instant); the rest
