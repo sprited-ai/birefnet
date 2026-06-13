@@ -111,20 +111,16 @@ class Predictor(BasePredictor):
         self,
         image: Path = Input(description="Input image"),
         variant: str = Input(
-            description="Which BiRefNet model to use. 'general' is the "
-            "all-purpose model; 'toonout' is the anime/stylized fine-tune; "
-            "the rest are specialized BiRefNet zoo models.",
+            description="Which BiRefNet model to use. 'general' is the all-purpose default; 'toonout' is the anime/stylized fine-tune; the rest are specialized BiRefNet zoo models.",
             choices=list(VARIANTS.keys()),
             default=DEFAULT_VARIANT,
         ),
         resolution: int = Input(
-            description="Inference resolution (square). 0 = use the variant's "
-            "native resolution (1024, or 2048 for HR/2K variants).",
+            description="Inference resolution (square). 0 = use the variant's native resolution (1024, or 2048 for HR/2K variants).",
             default=0, ge=0, le=2048,
         ),
         output_format: str = Input(
-            description="'cutout' = RGBA image with background removed; "
-            "'mask' = the raw single-channel alpha matte.",
+            description="'cutout' = RGBA image with background removed; 'mask' = the raw single-channel alpha matte.",
             choices=["cutout", "mask"],
             default="cutout",
         ),
@@ -137,8 +133,7 @@ class Predictor(BasePredictor):
             default=0, ge=-64, le=64,
         ),
         refine_fg: bool = Input(
-            description="Refine foreground colours (FB blur fusion) to remove "
-            "background bleed on soft edges. Ignored for 'mask' output.",
+            description="Refine foreground colours (FB blur fusion) to remove background bleed on soft edges. Ignored for 'mask' output.",
             default=False,
         ),
     ) -> Path:
