@@ -82,8 +82,8 @@ class Predictor(BasePredictor):
         # few GB in fp16, comfortable on an A100-80GB). Preload the baked
         # variants so their first request is instant; the rest lazy-load.
         self._models: dict[tuple[str, str], AutoModelForImageSegmentation] = {}
-        self._load("toonout", "fp16")
-        self._load(DEFAULT_VARIANT, "fp16")
+        self._load("toonout", "fp32")
+        self._load(DEFAULT_VARIANT, "fp32")
         print("[setup] ready", flush=True)
 
     def _load(self, variant: str, precision: str) -> AutoModelForImageSegmentation:
@@ -178,9 +178,9 @@ class Predictor(BasePredictor):
             default=False,
         ),
         precision: str = Input(
-            description="GPU inference precision. 'fp16' (default) is BiRefNet's standard — ~2x faster, half the VRAM, negligible quality difference. 'fp32' is full precision.",
+            description="GPU inference precision. 'fp32' (default) is full precision. 'fp16' is somewhat faster and uses less VRAM (modest on A100 — ~87ms vs ~69ms; bigger gains on older GPUs), with negligible quality difference.",
             choices=["fp16", "fp32"],
-            default="fp16",
+            default="fp32",
         ),
     ) -> Path:
         half = precision == "fp16" and self.device == "cuda"
