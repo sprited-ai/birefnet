@@ -1,4 +1,4 @@
-# birefnet-rmbg
+# birefnet
 
 > **Unofficial community packaging.** These are not our models and we are not
 > affiliated with their authors. We packaged the
@@ -7,29 +7,30 @@
 > (MIT, Matteo Muratori & Joël Seytre) for
 > [Replicate](https://replicate.com); **we earn nothing** — compute fees go to
 > Replicate. Authors who want this changed or taken down:
-> [open an issue](https://github.com/sprited-ai/birefnet-rmbg/issues) and we
+> [open an issue](https://github.com/sprited-ai/birefnet/issues) and we
 > comply immediately.
 
-**MIT-licensed background removal — commercial-OK, with controls most
-one-button removers don't give you.** The full
-[BiRefNet](https://github.com/ZhengPeng7/BiRefNet) variant zoo behind one
-endpoint, packaged for [Replicate](https://replicate.com).
+**The complete [BiRefNet](https://github.com/ZhengPeng7/BiRefNet) on
+[Replicate](https://replicate.com).** Replicate's existing BiRefNet endpoint
+serves only the legacy general weights with a single resolution knob — this
+brings the full model zoo, real output controls, and the ToonOut anime
+fine-tune behind one endpoint.
 
-What sets it apart:
+What you get over the basic endpoint:
 
-- **Anime / stylized** — the `toonout` variant ([ToonOut](https://arxiv.org/abs/2509.06839))
-  handles hair wisps, line art, and translucency that general removers smear.
-- **MIT, commercial-free** — BiRefNet and ToonOut are both MIT, so you can
-  use the output commercially with no extra license (unlike BRIA-based
-  models, which gate commercial use).
-- **9 variants, one endpoint** — general / HR / portrait / matting / dynamic /
-  lite / 2K / toonout, swapped per request; every variant shares the network
-  so one warm container serves them all.
-- **More knobs** — choose `cutout` (RGBA) or raw `mask`, grow/shrink/blur the
-  matte, refine foreground colours, set inference resolution. Most competitors
-  take an image and give you one fixed answer.
+- **The whole zoo, one input** — general / HR / portrait / matting / matting-HR
+  / dynamic / lite / lite-2K, swapped per request via `variant`. Every variant
+  shares the network, so one warm container serves them all.
+- **ToonOut for stylized content** — the `toonout` variant
+  ([ToonOut](https://arxiv.org/abs/2509.06839)) handles hair wisps, line art,
+  and translucency that general removers smear. No other Replicate BiRefNet
+  has it.
+- **Real output controls** — `cutout` (RGBA) or raw `mask`, grow/shrink/blur
+  the matte, refine foreground colours, pick inference resolution.
+- **MIT, commercial-OK** — BiRefNet and ToonOut are both MIT, so the output is
+  free for commercial use (unlike BRIA-based removers, which gate it).
 
-For the dedicated anime-only endpoint, see
+For the dedicated one-click anime endpoint, see
 [sprited/birefnet-toonout](https://replicate.com/sprited/birefnet-toonout).
 
 ## Variants
@@ -63,7 +64,7 @@ Packaged by [Sprited](https://spritedx.com).
 ## Deploy
 
 ```
-cog login && cog push r8.im/sprited/birefnet-rmbg
+cog login && cog push r8.im/sprited/birefnet
 ```
 
 ## Citations
